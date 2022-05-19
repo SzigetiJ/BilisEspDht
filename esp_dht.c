@@ -18,8 +18,10 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-#include "esp_dht.h"
 #include <string.h>
+#include "esp_dht.h"
+
+/* DEFINES */
 
 #define DHT_SYNC_BITS 2U
 #define DHT_DATA_BITS (DHT_DATA_BYTES * 8U)
@@ -38,7 +40,7 @@ static bool IRAM_ATTR dht_host_ready_handler(void *pvParam);
 /*  INTERNAL FUNCTIONS */
 
 static void IRAM_ATTR dht_gpio_edge_handler(void* pvParam) {
-    const S_DHT_COMM_CONFIG *psCfg = &((S_DHT_COMM_PARAM*) pvParam)->sCfg;
+    S_DHT_COMM_CONFIG *psCfg = &((S_DHT_COMM_PARAM*) pvParam)->sCfg;
     S_DHT_COMM_VAR *psVar = &((S_DHT_COMM_PARAM*) pvParam)->sVar;
     uint64_t u64usClock;
     uint32_t *pu32usClock = (uint32_t*)&u64usClock; // we deal with 32 bit times
@@ -86,7 +88,7 @@ static void IRAM_ATTR dht_gpio_edge_handler(void* pvParam) {
 }
 
 static bool IRAM_ATTR dht_host_ready_handler(void *pvParam) {
-    const S_DHT_COMM_CONFIG *psCfg = &((S_DHT_COMM_PARAM*) pvParam)->sCfg;
+    S_DHT_COMM_CONFIG *psCfg = &((S_DHT_COMM_PARAM*) pvParam)->sCfg;
     S_DHT_COMM_VAR *psVar = &((S_DHT_COMM_PARAM*) pvParam)->sVar;
     uint64_t u64usClock;
 
@@ -102,14 +104,14 @@ static bool IRAM_ATTR dht_host_ready_handler(void *pvParam) {
 
 /* INTERFACE FUNCTIONS */
 
-void dht_read_nb(S_DHT_COMM_PARAM *psParam) {
-    const S_DHT_COMM_CONFIG *psCfg = &psParam->sCfg;
+bool dht_read_nb(S_DHT_COMM_PARAM *psParam) {
+    S_DHT_COMM_CONFIG *psCfg = &psParam->sCfg;
     S_DHT_COMM_VAR *psVar = &psParam->sVar;
     uint64_t u64usClock;
 
     // cleanup
     psVar->b32Flag = DHT_FLAG_PHASE_HOST;
-    psVar->u8BitIdx = -2; // we have 2 sync signals
+    psVar->u8BitIdx = (uint8_t)-(DHT_SYNC_BITS); // underflow sync bits
     memset(psVar->acDat, 0, DHT_DATA_BYTES);
     gpio_isr_handler_remove(psCfg->eDatPin);
 
@@ -135,4 +137,6 @@ void dht_read_nb(S_DHT_COMM_PARAM *psParam) {
             0);
     timer_enable_intr(psCfg->eTGroup, psCfg->eTIdx);
     timer_set_alarm(psCfg->eTGroup, psCfg->eTIdx, TIMER_ALARM_EN);
+
+    return 0 != (psVar->b32Flag & DHT_FLAG_ANYERR);
 }
