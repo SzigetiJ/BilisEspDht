@@ -39,11 +39,13 @@ static bool IRAM_ATTR dht_host_ready_handler(void *pvParam);
 
 /*  INTERNAL FUNCTIONS */
 
+/// ISR on data channel signal edge.
+/// \param pvParam DHT communication parameter.
 static void IRAM_ATTR dht_gpio_edge_handler(void* pvParam) {
     S_DHT_COMM_CONFIG *psCfg = &((S_DHT_COMM_PARAM*) pvParam)->sCfg;
     S_DHT_COMM_VAR *psVar = &((S_DHT_COMM_PARAM*) pvParam)->sVar;
     uint64_t u64usClock;
-    uint32_t *pu32usClock = (uint32_t*)&u64usClock; // we deal with 32 bit times
+    uint32_t *pu32usClock = (uint32_t*)&u64usClock; // we deal with 32 bit time differences
     int iLevel;
 
     timer_get_counter_value(psCfg->eTGroup, psCfg->eTIdx, &u64usClock);
@@ -87,6 +89,10 @@ static void IRAM_ATTR dht_gpio_edge_handler(void* pvParam) {
     }
 }
 
+/// ISR triggered on timer alarm (end of host sync signal).
+/// Changes communication direction: out -> in.
+/// \param pvParam (Pointer to) DHT communication parameter.
+/// \return true.
 static bool IRAM_ATTR dht_host_ready_handler(void *pvParam) {
     S_DHT_COMM_CONFIG *psCfg = &((S_DHT_COMM_PARAM*) pvParam)->sCfg;
     S_DHT_COMM_VAR *psVar = &((S_DHT_COMM_PARAM*) pvParam)->sVar;
@@ -104,6 +110,10 @@ static bool IRAM_ATTR dht_host_ready_handler(void *pvParam) {
 
 /* INTERFACE FUNCTIONS */
 
+/// Reads DHT22 values (non-blocking).
+/// \param psParam DHT communication parameters. sCfg must be defined, sVar will be overwritten.
+/// This memory area must be available during the whole communication process.
+/// \return Failure.
 bool dht_read_nb(S_DHT_COMM_PARAM *psParam) {
     S_DHT_COMM_CONFIG *psCfg = &psParam->sCfg;
     S_DHT_COMM_VAR *psVar = &psParam->sVar;
@@ -116,7 +126,6 @@ bool dht_read_nb(S_DHT_COMM_PARAM *psParam) {
     gpio_isr_handler_remove(psCfg->eDatPin);
 
     // init dat gpio port
-    gpio_reset_pin(psCfg->eDatPin);
     gpio_pullup_en(psCfg->eDatPin);
     gpio_set_direction(psCfg->eDatPin, GPIO_MODE_OUTPUT);
     gpio_set_intr_type(psCfg->eDatPin, GPIO_INTR_ANYEDGE);
